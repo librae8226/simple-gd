@@ -1,6 +1,28 @@
 import datetime
 import calendar
 
+# Retrieve N months of history data before starting date
+N = 12
+
+def get_eps(security, date):
+    """
+    """
+    e = 0
+    y, q = get_last_quarters(date)
+    #log.info("last quarters: %dq%d ~ %dq%d", y[1], q[1], y[4], q[4])
+    res = query(
+        valuation.code, valuation.day, income.statDate, valuation.pe_ratio, valuation.pb_ratio, income.basic_eps
+        ).filter(
+        valuation.code == security
+    )
+    for i in range(1, 5):
+        ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
+        #log.info(ret)
+        e += ret['basic_eps']
+        #log.info("1/4 eps: %f", e)
+    #log.info("eps: %f", e)
+    return e
+
 def get_last_quarters(date):
     """
     Get last 4 quarters, including year index and quarter index.
@@ -49,17 +71,17 @@ def gd_init(context):
     log.info('gd_init: in')
 
     curr = context.current_dt
-    date = add_months(curr, -1)
+    date = add_months(curr, -N)
     first, date = get_month_day_range(date)
     while True:
-        datestr = first.strftime("%Y-%m-%d")
-        log.info(datestr)
+        #datestr = first.strftime("%Y-%m-%d")
+        #log.info(datestr)
         first, date = get_month_day_range(date)
         if date > curr:
             log.info('gd_init: break')
             break
         for security in g.pool:
-            log.info(security)
+            #log.info(security)
             df = get_price(
                 security,
                 start_date=first.strftime("%Y-%m-%d"),
@@ -70,25 +92,10 @@ def gd_init(context):
             #log.info(df['close'])
             #log.info('mean: %f', df['close'].mean())
             #p = (df['close'].mean/df['factor'][-1])
-            p = df['close'].mean
-            e = 0
-            y, q = get_last_quarters(date)
-            log.info("last quarter1: %dq%d", y[1], q[1])
-            log.info("last quarter2: %dq%d", y[2], q[2])
-            log.info("last quarter3: %dq%d", y[3], q[3])
-            log.info("last quarter4: %dq%d", y[4], q[4])
-            res = query(
-                valuation.code, valuation.day, income.statDate, valuation.pe_ratio, valuation.pb_ratio, income.basic_eps
-                ).filter(
-                valuation.code == security
-            )
-            for i in range(1, 5):
-                ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
-                log.info(ret)
-                e += ret['basic_eps']
-                log.info("1/4 eps: %f", e)
-
-            log.info("eps: %f", e)
+            p = df['close'].mean()
+            e = get_eps(security, date)
+            pe = p/e
+            log.info('P/E ratio of %s at %s: %f', security, first.strftime("%Y-%m"), pe)
             #g.security_gd_pe[security].append(p/e)
 
         date = add_months(date, +1)
@@ -135,13 +142,14 @@ def on_month_end(context):
 
 def initialize(context):
     g.pool = [
-        '600030.XSHG', # 中信证券
-        '600887.XSHG', # 伊利股份
-        '600104.XSHG', # 上汽集团
-        '600594.XSHG', # 益佰制药
-        '601668.XSHG', # 中国建筑
-        '600690.XSHG', # 青岛海尔
-        '600048.XSHG', # 保利地产
+        #'600030.XSHG', # 中信证券
+        #'600887.XSHG', # 伊利股份
+        #'600104.XSHG', # 上汽集团
+        #'600594.XSHG', # 益佰制药
+        #'601668.XSHG', # 中国建筑
+        #'600690.XSHG', # 青岛海尔
+        #'600048.XSHG', # 保利地产
+        '601222.XSHG',
     ]
     log.info(g.pool)
     log.info("initialize: amount of securities: %d", len(g.pool))
@@ -194,4 +202,3 @@ def handle_data(context, data):
             log.info("Selling %s %d", security, sell_amount)
 
         record(stock_price=data[security].price, average_price_10w=data[security].mavg(50))
-
