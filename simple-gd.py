@@ -5,7 +5,17 @@ import collections
 import pandas as pd
 
 # Retrieve N months of history data before starting date
-N = 12*5
+N = 12*6
+POOL = [
+    #'600030.XSHG', # 中信证券
+    #'600887.XSHG', # 伊利股份
+    #'600104.XSHG', # 上汽集团
+    #'600594.XSHG', # 益佰制药
+    #'601668.XSHG', # 中国建筑
+    #'600690.XSHG', # 青岛海尔
+    #'600048.XSHG', # 保利地产
+    '600594.XSHG',
+]
 
 def get_eps(security, date):
     """
@@ -171,16 +181,7 @@ def on_month_end(context):
     pass
 
 def initialize(context):
-    g.pool = [
-        '600030.XSHG', # 中信证券
-        '600887.XSHG', # 伊利股份
-        '600104.XSHG', # 上汽集团
-        '600594.XSHG', # 益佰制药
-        '601668.XSHG', # 中国建筑
-        '600690.XSHG', # 青岛海尔
-        '600048.XSHG', # 保利地产
-        '601222.XSHG',
-    ]
+    g.pool = POOL
     log.info(g.pool)
     log.info("initialize: amount of securities: %d", len(g.pool))
 
