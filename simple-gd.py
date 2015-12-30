@@ -2,7 +2,7 @@ import datetime
 import calendar
 
 # Retrieve N months of history data before starting date
-N = 12
+N = 60
 
 def get_eps(security, date):
     """
@@ -19,8 +19,8 @@ def get_eps(security, date):
         ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
         #log.info(ret)
         e += ret['basic_eps']
-        #log.info("1/4 eps: %f", e)
-    #log.info("eps: %f", e)
+        log.info("%dq%d 1/4 eps: %f", y[i], q[i], e)
+    log.info("eps: %f", e)
     return e
 
 def get_last_quarters(date):
@@ -74,33 +74,52 @@ def gd_init(context):
     date = add_months(curr, -N)
     first, date = get_month_day_range(date)
     while True:
-        #datestr = first.strftime("%Y-%m-%d")
-        #log.info(datestr)
+        datestr = date.strftime("%Y-%m-%d")
+        log.info(datestr)
         first, date = get_month_day_range(date)
         if date > curr:
             log.info('gd_init: break')
             break
         for security in g.pool:
             #log.info(security)
+
+            # we need to get eps of last 4 quaters
+            # so it is necessary to ensure this security is valid then
+            tmp = get_fundamentals(query(
+                valuation.market_cap
+            ).filter(
+                valuation.code == security
+            ), add_months(first, -12).strftime("%Y-%m-%d"))
+            if tmp['market_cap'].empty == True:
+                #print 'not valid!'
+                continue
+            else:
+                #print tmp['market_cap'].mean()
+                pass
+
             df = get_price(
                 security,
                 start_date=first.strftime("%Y-%m-%d"),
                 end_date= date.strftime("%Y-%m-%d"),
                 frequency='daily',
                 fields=['close', 'factor'])
-            #log.info(df)
-            #log.info(df['close'])
-            #log.info('mean: %f', df['close'].mean())
-            #p = (df['close'].mean/df['factor'][-1])
-            p = df['close'].mean()
+            close = df['close']/df['factor']
+            p = close.mean()
+            log.info('price mean: %f', p)
             e = get_eps(security, date)
-            pe = p/e
-            log.info('P/E ratio of %s at %s: %f', security, first.strftime("%Y-%m"), pe)
-            #g.security_gd_pe[security].append(p/e)
+            pe = round(p/e, 2)
+            g.security_gd_pe[g.pool.index(security)][0].append(date.strftime("%Y-%m-%d"))
+            g.security_gd_pe[g.pool.index(security)][1].append(pe)
+            log.debug('P/E ratio of %s at %s: %f', security, date.strftime("%Y-%m"), pe)
 
         date = add_months(date, +1)
 
     log.info('gd_init: out')
+    for security in g.pool:
+        j = g.security_gd_pe[g.pool.index(security)]
+        for k in range(0, len(j[0])):
+            print '<' + security + '> ' + j[0][k] + ': ' + str(j[1][k])
+            pass
 
 def gd_update(context, security):
     curr = context.current_dt
@@ -149,12 +168,23 @@ def initialize(context):
         #'601668.XSHG', # 中国建筑
         #'600690.XSHG', # 青岛海尔
         #'600048.XSHG', # 保利地产
-        '601222.XSHG',
+        '600690.XSHG',
     ]
     log.info(g.pool)
     log.info("initialize: amount of securities: %d", len(g.pool))
 
     g.security_gd_pe = range(0, len(g.pool))
+    for security in g.pool:
+        # e.g.
+        # [
+        #   [2012-09-31, 2012-10-31, ...], # timestamp
+        #   [11.13, 12.19, ...],
+        # ],
+        # [
+        #   [],
+        #   [],
+        # ], ...
+        g.security_gd_pe[g.pool.index(security)] = [[], []]
 
     gd_init(context)
 
@@ -169,7 +199,6 @@ def before_trading_start(context):
 def after_trading_end(context):
     pass
 
-# 每个单位时间(如果按天回测,则每天调用一次,如果按分钟,则每分钟调用一次)调用一次
 def handle_data(context, data):
     pass
     return
@@ -180,7 +209,6 @@ def handle_data(context, data):
         average_price_20w = data[security].mavg(100)
         average_price_30w = data[security].mavg(150)
         current_price = data[security].price
-        # 取得当前的现金
         cash = context.portfolio.cash
         value = context.portfolio.portfolio_value
         amount = context.portfolio.positions[security].amount
@@ -190,15 +218,11 @@ def handle_data(context, data):
         sell_amount = 0.5*amount
 
         if current_price < buy_price:
-            # 购买量大于0时，下单
             if buy_amount > 0:
-                # 买入股票
                 order(security, +buy_amount)
-                # 记录这次买入
                 log.info("Buying %s %d", security, buy_amount)
         elif current_price > sell_price and amount > 0:
             order(security, -sell_amount)
-            # 记录这次卖出
             log.info("Selling %s %d", security, sell_amount)
 
         record(stock_price=data[security].price, average_price_10w=data[security].mavg(50))
