@@ -1,5 +1,7 @@
 import datetime
 import calendar
+import json
+import pandas as pd
 
 # Retrieve N months of history data before starting date
 N = 60
@@ -108,8 +110,7 @@ def gd_init(context):
             #log.info('price mean: %f', p)
             e = get_eps(security, date)
             pe = round(p/e, 2)
-            g.security_gd_pe[g.pool.index(security)][0].append(date.strftime("%Y-%m-%d"))
-            g.security_gd_pe[g.pool.index(security)][1].append(pe)
+            g.security_gd_pe[g.pool.index(security)][date.strftime("%Y-%m-%d")] = pe
             log.debug('P/E ratio of %s at %s: %f', security, date.strftime("%Y-%m"), pe)
 
         date = add_months(date, +1)
@@ -117,10 +118,18 @@ def gd_init(context):
     log.info('gd_init: out')
     for security in g.pool:
         j = g.security_gd_pe[g.pool.index(security)]
-        log.info('%d entries for %s within %s~%s', len(j[0]), security, j[0][0], j[0][-1])
-        for k in range(0, len(j[0])):
-            print '<' + security + '> ' + j[0][k] + ': ' + str(j[1][k])
+        log.info('%d entries for %s within %s~%s', len(j), security, j.keys()[0], j.keys()[-1])
+        for k in range(0, len(j)):
+            print '<' + security + '> ' + j.keys()[k] + ': ' + str(j.values()[k])
             pass
+        # save to .json and .csv for future use
+        file = str(security + '.json')
+        print 'write to ' + file
+        write_file(file, json.dumps(j), append=False)
+        df_from_dict = pd.DataFrame(j.items())
+        file = str(security + '.csv')
+        print 'write to ' + file
+        write_file(file, df_from_dict.to_csv(), append=False)
 
 def gd_update(context, security):
     curr = context.current_dt
@@ -170,7 +179,6 @@ def initialize(context):
         #'600690.XSHG', # 青岛海尔
         #'600048.XSHG', # 保利地产
         '600690.XSHG',
-        '601222.XSHG',
     ]
     log.info(g.pool)
     log.info("initialize: amount of securities: %d", len(g.pool))
@@ -179,14 +187,16 @@ def initialize(context):
     for security in g.pool:
         # e.g.
         # [
-        #   [2012-09-31, 2012-10-31, ...], # timestamp
-        #   [11.13, 12.19, ...],
+        #   {
+        #     "2012-09-31": 11.13, # timestamp: pe
+        #     "2012-10-31": 12.19,
+        #     ...
+        #   }
         # ],
         # [
-        #   [],
-        #   [],
+        #   {},
         # ], ...
-        g.security_gd_pe[g.pool.index(security)] = [[], []]
+        g.security_gd_pe[g.pool.index(security)] = {}
 
     gd_init(context)
 
