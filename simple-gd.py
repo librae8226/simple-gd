@@ -1,10 +1,11 @@
 import datetime
 import calendar
 import json
+import collections
 import pandas as pd
 
 # Retrieve N months of history data before starting date
-N = 60
+N = 12*5
 
 def get_eps(security, date):
     """
@@ -74,12 +75,11 @@ def gd_init(context):
 
     curr = context.current_dt
     date = add_months(curr, -N)
-    first, date = get_month_day_range(date)
     while True:
-        #datestr = date.strftime("%Y-%m-%d")
+        #datestr = last.strftime("%Y-%m-%d")
         #log.info(datestr)
-        first, date = get_month_day_range(date)
-        if date > curr:
+        first, last = get_month_day_range(date)
+        if last > curr:
             log.info('gd_init: break')
             break
         for security in g.pool:
@@ -102,32 +102,33 @@ def gd_init(context):
             df = get_price(
                 security,
                 start_date=first.strftime("%Y-%m-%d"),
-                end_date= date.strftime("%Y-%m-%d"),
+                end_date= last.strftime("%Y-%m-%d"),
                 frequency='daily',
                 fields=['close', 'factor'])
             close = df['close']/df['factor']
             p = close.mean()
             #log.info('price mean: %f', p)
-            e = get_eps(security, date)
+            e = get_eps(security, last)
             pe = round(p/e, 2)
-            g.security_gd_pe[g.pool.index(security)][date.strftime("%Y-%m-%d")] = pe
-            log.debug('P/E ratio of %s at %s: %f', security, date.strftime("%Y-%m"), pe)
+            g.security_gd_pe[g.pool.index(security)][last.strftime("%Y-%m-%d")] = pe
+            log.debug('P/E ratio of %s at %s: %f', security, last.strftime("%Y-%m"), pe)
 
         date = add_months(date, +1)
 
     log.info('gd_init: out')
     for security in g.pool:
         j = g.security_gd_pe[g.pool.index(security)]
+        j = collections.OrderedDict(sorted(j.items()))
         log.info('%d entries for %s within %s~%s', len(j), security, j.keys()[0], j.keys()[-1])
         for k in range(0, len(j)):
             print '<' + security + '> ' + j.keys()[k] + ': ' + str(j.values()[k])
             pass
         # save to .json and .csv for future use
-        file = str(security + '.json')
+        file = str('data/' + security + '.json')
         print 'write to ' + file
-        write_file(file, json.dumps(j), append=False)
-        df_from_dict = pd.DataFrame(j.items())
-        file = str(security + '.csv')
+        write_file(file, json.dumps(j, sort_keys=True), append=False)
+        df_from_dict = pd.DataFrame(j.items(), columns = ['date', 'pe'])
+        file = str('data/' + security + '.csv')
         print 'write to ' + file
         write_file(file, df_from_dict.to_csv(), append=False)
 
@@ -171,14 +172,14 @@ def on_month_end(context):
 
 def initialize(context):
     g.pool = [
-        #'600030.XSHG', # 中信证券
-        #'600887.XSHG', # 伊利股份
-        #'600104.XSHG', # 上汽集团
-        #'600594.XSHG', # 益佰制药
-        #'601668.XSHG', # 中国建筑
-        #'600690.XSHG', # 青岛海尔
-        #'600048.XSHG', # 保利地产
-        '600690.XSHG',
+        '600030.XSHG', # 中信证券
+        '600887.XSHG', # 伊利股份
+        '600104.XSHG', # 上汽集团
+        '600594.XSHG', # 益佰制药
+        '601668.XSHG', # 中国建筑
+        '600690.XSHG', # 青岛海尔
+        '600048.XSHG', # 保利地产
+        '601222.XSHG',
     ]
     log.info(g.pool)
     log.info("initialize: amount of securities: %d", len(g.pool))
