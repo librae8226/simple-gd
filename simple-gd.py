@@ -19,8 +19,8 @@ def get_eps(security, date):
         ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
         #log.info(ret)
         e += ret['basic_eps']
-        log.info("%dq%d 1/4 eps: %f", y[i], q[i], e)
-    log.info("eps: %f", e)
+        #log.info("%dq%d 1/4 eps: %f", y[i], q[i], e)
+    #log.info("eps: %f", e)
     return e
 
 def get_last_quarters(date):
@@ -74,8 +74,8 @@ def gd_init(context):
     date = add_months(curr, -N)
     first, date = get_month_day_range(date)
     while True:
-        datestr = date.strftime("%Y-%m-%d")
-        log.info(datestr)
+        #datestr = date.strftime("%Y-%m-%d")
+        #log.info(datestr)
         first, date = get_month_day_range(date)
         if date > curr:
             log.info('gd_init: break')
@@ -91,7 +91,7 @@ def gd_init(context):
                 valuation.code == security
             ), add_months(first, -12).strftime("%Y-%m-%d"))
             if tmp['market_cap'].empty == True:
-                #print 'not valid!'
+                #print 'security invalid!'
                 continue
             else:
                 #print tmp['market_cap'].mean()
@@ -105,7 +105,7 @@ def gd_init(context):
                 fields=['close', 'factor'])
             close = df['close']/df['factor']
             p = close.mean()
-            log.info('price mean: %f', p)
+            #log.info('price mean: %f', p)
             e = get_eps(security, date)
             pe = round(p/e, 2)
             g.security_gd_pe[g.pool.index(security)][0].append(date.strftime("%Y-%m-%d"))
@@ -117,6 +117,7 @@ def gd_init(context):
     log.info('gd_init: out')
     for security in g.pool:
         j = g.security_gd_pe[g.pool.index(security)]
+        log.info('%d entries for %s within %s~%s', len(j[0]), security, j[0][0], j[0][-1])
         for k in range(0, len(j[0])):
             print '<' + security + '> ' + j[0][k] + ': ' + str(j[1][k])
             pass
@@ -169,6 +170,7 @@ def initialize(context):
         #'600690.XSHG', # 青岛海尔
         #'600048.XSHG', # 保利地产
         '600690.XSHG',
+        '601222.XSHG',
     ]
     log.info(g.pool)
     log.info("initialize: amount of securities: %d", len(g.pool))
