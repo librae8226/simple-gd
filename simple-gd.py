@@ -7,13 +7,13 @@ import pandas as pd
 # Retrieve N months of history data before starting date
 N = 12 * 6
 POOL = [
-    #'600030.XSHG', # 中信证券
-    #'600887.XSHG', # 伊利股份
-    #'600104.XSHG', # 上汽集团
-    #'600594.XSHG', # 益佰制药
-    #'601668.XSHG', # 中国建筑
-    #'600690.XSHG', # 青岛海尔
-    #'600048.XSHG', # 保利地产
+    '600030.XSHG', # 中信证券
+    '600887.XSHG', # 伊利股份
+    '600104.XSHG', # 上汽集团
+    '600594.XSHG', # 益佰制药
+    '601668.XSHG', # 中国建筑
+    '600690.XSHG', # 青岛海尔
+    '600048.XSHG', # 保利地产
     '601222.XSHG',
 ]
 
@@ -32,8 +32,8 @@ def get_eps(security, date):
         ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
         #log.info(ret)
         e += ret['basic_eps']
-        log.info("%dq%d 1/4 eps: %f", y[i], q[i], e)
-    log.info("eps: %f", e)
+        #log.info("%dq%d 1/4 eps: %f", y[i], q[i], e)
+    #log.info("eps: %f", e)
     return e
 
 def get_last_quarters(date):
@@ -78,6 +78,21 @@ def add_months(sourcedate, months):
     day = min(sourcedate.day,calendar.monthrange(year,month)[1])
     return datetime.datetime(year,month,day)
 
+def get_pe_of_period(security, start, end):
+    df = get_price(
+        security,
+        start_date = start.strftime("%Y-%m-%d"),
+        end_date = end.strftime("%Y-%m-%d"),
+        frequency = 'daily',
+        fields = ['close', 'factor'])
+    close = df['close']/df['factor']
+    p = close.mean()
+    #log.info('price mean: %f', p)
+    e = get_eps(security, end)
+    pe = round(p/e, 2)
+    #log.debug('P/E Ratio of %s at %s: %f', security, end.strftime("%Y-%m"), pe)
+    return pe
+
 def gd_init(context):
     """
     Gaussian Distribution
@@ -88,8 +103,8 @@ def gd_init(context):
     date = add_months(curr, -N)
     while True:
         first, last = get_month_day_range(date)
-        datestr = last.strftime("%Y-%m-%d")
-        log.info(datestr)
+        #datestr = last.strftime("%Y-%m-%d")
+        #log.info(datestr)
         if last > curr:
             log.info('gd_init: break')
             break
@@ -104,29 +119,16 @@ def gd_init(context):
                 valuation.code == security
             ), add_months(first, -12).strftime("%Y-%m-%d"))
             if tmp['market_cap'].empty == True:
-                print 'security invalid!'
+                #print 'security invalid!'
                 continue
             else:
                 #print tmp['market_cap'].mean()
                 pass
-
-            df = get_price(
-                security,
-                start_date=first.strftime("%Y-%m-%d"),
-                end_date= last.strftime("%Y-%m-%d"),
-                frequency='daily',
-                fields=['close', 'factor'])
-            close = df['close']/df['factor']
-            p = close.mean()
-            log.info('price mean: %f', p)
-            e = get_eps(security, last)
-            pe = round(p/e, 2)
+            pe = get_pe_of_period(security, first, last)
             g.security_gd_pe[g.pool.index(security)][last.strftime("%Y-%m-%d")] = pe
-            log.debug('P/E Ratio of %s at %s: %f', security, last.strftime("%Y-%m"), pe)
 
         date = add_months(date, +1)
-
-    log.info('gd_init: out')
+    '''
     for security in g.pool:
         j = g.security_gd_pe[g.pool.index(security)]
         j = collections.OrderedDict(sorted(j.items()))
@@ -142,10 +144,31 @@ def gd_init(context):
         file = str('data/' + security + '.csv')
         print 'write to ' + file
         write_file(file, df_from_dict.to_csv(), append=False)
+    '''
+    log.info('gd_init: out')
 
 def gd_update(context, security):
     curr = context.current_dt
-    pass
+    first, last = get_month_day_range(curr)
+    pe = get_pe_of_period(security, first, last)
+    g.security_gd_pe[g.pool.index(security)][last.strftime("%Y-%m-%d")] = pe
+
+    ''' update file '''
+    #for security in g.pool:
+    j = g.security_gd_pe[g.pool.index(security)]
+    j = collections.OrderedDict(sorted(j.items()))
+    #log.info('%d entries for %s within %s~%s', len(j), security, j.keys()[0], j.keys()[-1])
+    for k in range(0, len(j)):
+        #print '<' + security + '> ' + j.keys()[k] + ': ' + str(j.values()[k])
+        pass
+    # save to .json and .csv for future use
+    file = str('data/' + security + '.json')
+    print 'write to ' + file
+    write_file(file, json.dumps(j, sort_keys=True), append=False)
+    df_from_dict = pd.DataFrame(j.items(), columns = ['date', 'pe'])
+    file = str('data/' + security + '.csv')
+    print 'write to ' + file
+    write_file(file, df_from_dict.to_csv(), append=False)
 
     '''
     q = query(
@@ -166,6 +189,7 @@ def gd_update(context, security):
             ), date = (curr + timedelta(-i*365/12)))
         log.info("%s %f %f %f", df.valuation)
     '''
+
 def gd_get_left(security):
     pass
 
@@ -215,8 +239,18 @@ def after_trading_end(context):
     pass
 
 def handle_data(context, data):
-    pass
-    return
+    cash = context.portfolio.cash
+    value = context.portfolio.portfolio_value
+    date = context.current_dt
+    for security in g.pool:
+        current_price = data[security].price
+        e = get_eps(security, date)
+        if math.isnan(e):
+            e = get_eps(security, add_months(date, -4))
+        pe = round(current_price/e, 2)
+        log.info('P/E Ratio of %s at %s: %f', security, date.strftime("%Y-%m-%d"), pe)
+
+    '''
     for security in g.pool:
         average_price_5d = data[security].mavg(5)
         average_price_10d = data[security].mavg(10)
@@ -241,3 +275,4 @@ def handle_data(context, data):
             log.info("Selling %s %d", security, sell_amount)
 
         record(stock_price=data[security].price, average_price_10w=data[security].mavg(50))
+    '''
