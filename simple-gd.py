@@ -31,8 +31,8 @@ def get_eps(security, date):
     for i in range(1, 5):
         ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
         #log.info(ret)
-        e += ret['basic_eps']
-        #log.info("%dq%d 1/4 eps: %.2f", y[i], q[i], e)
+        e += ret['basic_eps'].mean()
+        #log.info("%dq%d 1/4 eps: %.2f", y[i], q[i], ret['basic_eps'].mean())
     #log.info("eps: %.2f", e)
     return e
 
@@ -250,7 +250,7 @@ def after_trading_end(context):
         close = close.mean()
         e = get_eps(security, date)
         if math.isnan(e):
-            e = get_eps(security, add_months(date, -4))
+            e = get_eps(security, add_months(date, -3))
         pe = round(close/e, 2)
         log.debug('PE of %s: %.2f (price: %.2f)', security, pe, close)
         record(price=close)
