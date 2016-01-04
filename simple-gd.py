@@ -5,7 +5,7 @@ import collections
 import pandas as pd
 
 # Retrieve N months of history data before starting date
-N = 12*6
+N = 12 * 6
 POOL = [
     #'600030.XSHG', # 中信证券
     #'600887.XSHG', # 伊利股份
@@ -14,7 +14,7 @@ POOL = [
     #'601668.XSHG', # 中国建筑
     #'600690.XSHG', # 青岛海尔
     #'600048.XSHG', # 保利地产
-    '600594.XSHG',
+    '601222.XSHG',
 ]
 
 def get_eps(security, date):
@@ -32,15 +32,16 @@ def get_eps(security, date):
         ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
         #log.info(ret)
         e += ret['basic_eps']
-        #log.info("%dq%d 1/4 eps: %f", y[i], q[i], e)
-    #log.info("eps: %f", e)
+        log.info("%dq%d 1/4 eps: %f", y[i], q[i], e)
+    log.info("eps: %f", e)
     return e
 
 def get_last_quarters(date):
     """
     Get last 4 quarters, including year index and quarter index.
     """
-    quarter = (date.month-1)//3 + 1
+    #quarter = (date.month-1)//3 + 1
+    quarter = (date.month-1)//3
     y = range(0, 5)
     q = range(0, 5)
     for i in range(1, 5):
@@ -86,9 +87,9 @@ def gd_init(context):
     curr = context.current_dt
     date = add_months(curr, -N)
     while True:
-        #datestr = last.strftime("%Y-%m-%d")
-        #log.info(datestr)
         first, last = get_month_day_range(date)
+        datestr = last.strftime("%Y-%m-%d")
+        log.info(datestr)
         if last > curr:
             log.info('gd_init: break')
             break
@@ -103,7 +104,7 @@ def gd_init(context):
                 valuation.code == security
             ), add_months(first, -12).strftime("%Y-%m-%d"))
             if tmp['market_cap'].empty == True:
-                #print 'security invalid!'
+                print 'security invalid!'
                 continue
             else:
                 #print tmp['market_cap'].mean()
@@ -117,11 +118,11 @@ def gd_init(context):
                 fields=['close', 'factor'])
             close = df['close']/df['factor']
             p = close.mean()
-            #log.info('price mean: %f', p)
+            log.info('price mean: %f', p)
             e = get_eps(security, last)
             pe = round(p/e, 2)
             g.security_gd_pe[g.pool.index(security)][last.strftime("%Y-%m-%d")] = pe
-            log.debug('P/E ratio of %s at %s: %f', security, last.strftime("%Y-%m"), pe)
+            log.debug('P/E Ratio of %s at %s: %f', security, last.strftime("%Y-%m"), pe)
 
         date = add_months(date, +1)
 
