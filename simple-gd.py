@@ -7,13 +7,13 @@ import pandas as pd
 # Retrieve N months of history data before starting date
 N = 12 * 6
 POOL = [
-    '600030.XSHG', # 中信证券
-    '600887.XSHG', # 伊利股份
-    '600104.XSHG', # 上汽集团
-    '600594.XSHG', # 益佰制药
-    '601668.XSHG', # 中国建筑
-    '600690.XSHG', # 青岛海尔
-    '600048.XSHG', # 保利地产
+    #'600030.XSHG', # 中信证券
+    #'600887.XSHG', # 伊利股份
+    #'600104.XSHG', # 上汽集团
+    #'600594.XSHG', # 益佰制药
+    #'601668.XSHG', # 中国建筑
+    #'600690.XSHG', # 青岛海尔
+    #'600048.XSHG', # 保利地产
     '601222.XSHG',
 ]
 
@@ -32,8 +32,8 @@ def get_eps(security, date):
         ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
         #log.info(ret)
         e += ret['basic_eps']
-        #log.info("%dq%d 1/4 eps: %f", y[i], q[i], e)
-    #log.info("eps: %f", e)
+        #log.info("%dq%d 1/4 eps: %.2f", y[i], q[i], e)
+    #log.info("eps: %.2f", e)
     return e
 
 def get_last_quarters(date):
@@ -90,14 +90,14 @@ def get_pe_of_period(security, start, end):
     #log.info('price mean: %f', p)
     e = get_eps(security, end)
     pe = round(p/e, 2)
-    #log.debug('P/E Ratio of %s at %s: %f', security, end.strftime("%Y-%m"), pe)
+    #log.debug('P/E Ratio of %s at %s: %.2f', security, end.strftime("%Y-%m"), pe)
     return pe
 
 def gd_init(context):
     """
     Gaussian Distribution
     """
-    log.info('gd_init: in')
+    #log.debug('gd_init: in')
 
     curr = context.current_dt
     date = add_months(curr, -N)
@@ -106,7 +106,7 @@ def gd_init(context):
         #datestr = last.strftime("%Y-%m-%d")
         #log.info(datestr)
         if last > curr:
-            log.info('gd_init: break')
+            #log.debug('gd_init: break')
             break
         for security in g.pool:
             #log.info(security)
@@ -125,7 +125,8 @@ def gd_init(context):
                 #print tmp['market_cap'].mean()
                 pass
             pe = get_pe_of_period(security, first, last)
-            g.security_gd_pe[g.pool.index(security)][last.strftime("%Y-%m-%d")] = pe
+            if math.isnan(pe) == False:
+                g.security_gd_pe[g.pool.index(security)][last.strftime("%Y-%m-%d")] = pe
 
         date = add_months(date, +1)
     '''
@@ -145,13 +146,14 @@ def gd_init(context):
         print 'write to ' + file
         write_file(file, df_from_dict.to_csv(), append=False)
     '''
-    log.info('gd_init: out')
+    #log.debug('gd_init: out')
 
 def gd_update(context, security):
     curr = context.current_dt
     first, last = get_month_day_range(curr)
     pe = get_pe_of_period(security, first, last)
-    g.security_gd_pe[g.pool.index(security)][last.strftime("%Y-%m-%d")] = pe
+    if math.isnan(pe) == False:
+        g.security_gd_pe[g.pool.index(security)][last.strftime("%Y-%m-%d")] = pe
 
     ''' update file '''
     #for security in g.pool:
@@ -163,11 +165,11 @@ def gd_update(context, security):
         pass
     # save to .json and .csv for future use
     file = str('data/' + security + '.json')
-    print 'write to ' + file
+    #print 'write to ' + file
     write_file(file, json.dumps(j, sort_keys=True), append=False)
     df_from_dict = pd.DataFrame(j.items(), columns = ['date', 'pe'])
     file = str('data/' + security + '.csv')
-    print 'write to ' + file
+    #print 'write to ' + file
     write_file(file, df_from_dict.to_csv(), append=False)
 
     '''
@@ -236,19 +238,29 @@ def before_trading_start(context):
     pass
 
 def after_trading_end(context):
-    pass
+    date = context.current_dt
+    for security in g.pool:
+        df = get_price(
+            security,
+            start_date = date.strftime("%Y-%m-%d"),
+            end_date = date.strftime("%Y-%m-%d"),
+            frequency = 'daily',
+            fields = ['close', 'factor'])
+        close = df['close']/df['factor']
+        close = close.mean()
+        e = get_eps(security, date)
+        if math.isnan(e):
+            e = get_eps(security, add_months(date, -4))
+        pe = round(close/e, 2)
+        log.debug('PE of %s: %.2f (price: %.2f)', security, pe, close)
+        record(price=close)
 
 def handle_data(context, data):
     cash = context.portfolio.cash
     value = context.portfolio.portfolio_value
-    date = context.current_dt
     for security in g.pool:
-        current_price = data[security].price
-        e = get_eps(security, date)
-        if math.isnan(e):
-            e = get_eps(security, add_months(date, -4))
-        pe = round(current_price/e, 2)
-        log.info('P/E Ratio of %s at %s: %f', security, date.strftime("%Y-%m-%d"), pe)
+        pass
+    return
 
     '''
     for security in g.pool:
