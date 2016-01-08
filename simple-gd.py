@@ -5,17 +5,53 @@ import collections
 import pandas as pd
 
 # Retrieve N months of history data before starting date
-N = 12 * 6
+N = 12
 POOL = [
     #'600030.XSHG', # 中信证券
     #'600887.XSHG', # 伊利股份
     #'600104.XSHG', # 上汽集团
     #'600594.XSHG', # 益佰制药
     #'601668.XSHG', # 中国建筑
-    #'600690.XSHG', # 青岛海尔
+    '600690.XSHG', # 青岛海尔
     #'600048.XSHG', # 保利地产
-    '601222.XSHG',
+    #'601633.XSHG',
+    #'601222.XSHG',
+    #'002415.XSHE',
+    #'600422.XSHG',
 ]
+
+def estimation_formula_bg(growth, eps):
+    """
+    The stock price estimation formula suggested by Benjamin Graham
+    According to "The Intelligent Investor"
+    """
+    return (2*growth+8.5)*eps
+
+# growth rate in N years
+NYG = 4
+def est(security, date):
+    res = query(
+        valuation.code, valuation.pb_ratio, valuation.market_cap
+        ).filter(
+        valuation.code == security
+    )
+    c = []
+    delta = 0
+    for i in range(0, NYG+1):
+        d = add_months(date, -(NYG-i)*12).strftime("%Y-%m-%d")
+        ret = get_fundamentals(res, d)
+        c.append(ret['market_cap'].mean()/ret['pb_ratio'].mean())
+        log.debug("cap of %s at %s: %.2f(%.2f/%.2f)", security, d, c[i], ret['market_cap'].mean(), ret['pb_ratio'].mean())
+        if i != 0:
+            delta += c[i] - c[i-1]
+            #log.debug("delta %d: %.2f", i, c[i] - c[i-1])
+    growth = delta/NYG
+    eps = get_eps(security, date)
+    if math.isnan(eps):
+        eps = get_eps(security, add_months(date, -3))
+    #log.debug("growth: %.4f, eps: %.2f", growth, eps)
+    est = estimation_formula_bg(growth, eps)
+    return est
 
 def get_eps(security, date):
     """
@@ -24,7 +60,7 @@ def get_eps(security, date):
     y, q = get_last_quarters(date)
     #log.info("last quarters: %dq%d ~ %dq%d", y[1], q[1], y[4], q[4])
     res = query(
-        valuation.code, valuation.day, income.statDate, valuation.pe_ratio, valuation.pb_ratio, income.basic_eps
+        valuation.code, valuation.day, income.statDate, valuation.pe_ratio, valuation.pb_ratio, income.basic_eps, income.diluted_eps
         ).filter(
         valuation.code == security
     )
@@ -32,8 +68,9 @@ def get_eps(security, date):
         ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
         #log.info(ret)
         e += ret['basic_eps'].mean()
-        #log.info("%dq%d 1/4 eps: %.2f", y[i], q[i], ret['basic_eps'].mean())
-    #log.info("eps: %.2f", e)
+        #e += ret['diluted_eps'].mean()
+        #log.debug("%dq%d 1/4 eps: %.2f", y[i], q[i], ret['basic_eps'].mean())
+    #log.debug("eps: %.2f", e)
     return e
 
 def get_last_quarters(date):
@@ -89,6 +126,8 @@ def get_pe_of_period(security, start, end):
     p = close.mean()
     #log.info('price mean: %f', p)
     e = get_eps(security, end)
+    if math.isnan(e):
+        log.warn("get_pe_of_period, e is nan!")
     pe = round(p/e, 2)
     #log.debug('P/E Ratio of %s at %s: %.2f', security, end.strftime("%Y-%m"), pe)
     return pe
@@ -254,6 +293,21 @@ def after_trading_end(context):
         pe = round(close/e, 2)
         log.debug('PE of %s: %.2f (price: %.2f)', security, pe, close)
         record(price=close)
+        ''' estimation '''
+        est_value = est(security, date)
+        log.debug('estimation value of %s: %.2f', security, est_value)
+
+        ''' testing
+        res = query(
+            valuation.code, valuation.pb_ratio, valuation.market_cap
+            ).filter(
+            valuation.code == security
+        )
+        for i in range(0, NYG+1):
+            d = add_months(date, -(NYG-i)*12).strftime("%Y-%m-%d")
+            ret = get_fundamentals(res, d)
+            log.debug("[%s] cap: %.2f, pb: %.2f", d, ret['market_cap'].mean(), ret['pb_ratio'].mean())
+         '''
 
 def handle_data(context, data):
     cash = context.portfolio.cash
