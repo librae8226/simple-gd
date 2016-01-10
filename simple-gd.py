@@ -12,13 +12,21 @@ POOL = [
     #'600104.XSHG', # 上汽集团
     #'600594.XSHG', # 益佰制药
     #'601668.XSHG', # 中国建筑
-    '600690.XSHG', # 青岛海尔
+    #'600690.XSHG', # 青岛海尔
     #'600048.XSHG', # 保利地产
     #'601633.XSHG',
     #'601222.XSHG',
-    #'002415.XSHE',
+    '002415.XSHE',
     #'600422.XSHG',
 ]
+
+
+def estimation_formula_bg_dynamic(growth, eps, pe):
+    """
+    BJ formula, integrate with the normal pe (based on Gaussian Distribution)
+    """
+    pass
+    return
 
 def estimation_formula_bg(growth, eps):
     """
@@ -30,35 +38,54 @@ def estimation_formula_bg(growth, eps):
 # growth rate in N years
 NYG = 4
 def est(security, date):
-    res = query(
-        valuation.code, valuation.pb_ratio, valuation.market_cap
-        ).filter(
-        valuation.code == security
-    )
-    c = []
+    """
+    """
+    np = []
     delta = 0
+    # collect net profit in last NYG years, and work out a average growth rate
     for i in range(0, NYG+1):
-        d = add_months(date, -(NYG-i)*12).strftime("%Y-%m-%d")
-        ret = get_fundamentals(res, d)
-        c.append(ret['market_cap'].mean()/ret['pb_ratio'].mean())
-        log.debug("cap of %s at %s: %.2f(%.2f/%.2f)", security, d, c[i], ret['market_cap'].mean(), ret['pb_ratio'].mean())
+        d = add_months(date, -i*12)
+        tmp_np = get_net_profit(security, d)
+        if math.isnan(tmp_np):
+            date = add_months(date, -3)
+            d = add_months(date, -i*12)
+            np.append(get_net_profit(security, d))
+        else:
+            np.append(tmp_np)
+        log.debug("np of %s at %s: %.2f", security, d.strftime("%Y-%m-%d"), np[i])
         if i != 0:
-            delta += c[i] - c[i-1]
-            #log.debug("delta %d: %.2f", i, c[i] - c[i-1])
+            delta += (np[i-1] - np[i])/np[i]
+            #log.debug("delta %d: %.2f", i, (np[i-1] - np[i])/np[i])
     growth = delta/NYG
     eps = get_eps(security, date)
     if math.isnan(eps):
         eps = get_eps(security, add_months(date, -3))
-    #log.debug("growth: %.4f, eps: %.2f", growth, eps)
+    log.debug("growth: %.4f, eps: %.2f", growth, eps)
     est = estimation_formula_bg(growth, eps)
     return est
+
+def get_net_profit(security, date):
+    """
+    """
+    np = 0
+    y, q = get_last_quarters(date)
+    res = query(
+        valuation.code, income.net_profit
+        ).filter(
+        valuation.code == security
+    )
+    for i in range(1, 5):
+        ret = get_fundamentals(res, statDate=str(y[i])+'q'+str(q[i]))
+        #log.info(ret)
+        np += ret['net_profit'].mean()
+        #log.debug("%dq%d 1/4 np: %.2f", y[i], q[i], ret['net_profit'].mean())
+    return np
 
 def get_eps(security, date):
     """
     """
     e = 0
     y, q = get_last_quarters(date)
-    #log.info("last quarters: %dq%d ~ %dq%d", y[1], q[1], y[4], q[4])
     res = query(
         valuation.code, valuation.day, income.statDate, valuation.pe_ratio, valuation.pb_ratio, income.basic_eps, income.diluted_eps
         ).filter(
