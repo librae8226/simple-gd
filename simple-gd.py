@@ -20,10 +20,9 @@ POOL = [
     #'600422.XSHG',
 ]
 
-
 def estimation_formula_bg_dynamic(growth, eps, pe):
     """
-    BJ formula, integrate with the normal pe (based on Gaussian Distribution)
+    BG formula, integrate with the normal pe (based on Gaussian Distribution)
     """
     pass
     return
