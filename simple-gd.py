@@ -3,13 +3,14 @@ import calendar
 import json
 import collections
 import pandas as pd
+from scipy.stats import norm
 
 # Retrieve N months of history data before starting date
-N = 12
+N = 12*5
 POOL = [
     #'600030.XSHG', # 中信证券
     #'600887.XSHG', # 伊利股份
-    #'600104.XSHG', # 上汽集团
+    '600104.XSHG', # 上汽集团
     #'600594.XSHG', # 益佰制药
     #'601668.XSHG', # 中国建筑
     #'600690.XSHG', # 青岛海尔
@@ -21,16 +22,18 @@ POOL = [
     #'601318.XSHG',
     #'600000.XSHG',
     #'600036.XSHG',
-    '000651.XSHE',
+    #'000651.XSHE',
     #'000333.XSHE',
     #'600741.XSHG',
+    #'002421.XSHE',
+    #'601988.XSHG',
 ]
 
 def estimation_formula_bg_dynamic(growth, eps, pe):
     """
     BG formula, integrate with the normal pe (based on Gaussian Distribution)
     """
-    pass
+    return (2*growth+pe)*eps
     return
 
 def estimation_formula_bg(growth, eps):
@@ -42,7 +45,7 @@ def estimation_formula_bg(growth, eps):
 
 # growth rate in N years
 NYG = 3
-def est(security, date):
+def est(security, date, pe_mu=8.5, pe_std=0):
     """
     """
     np = []
@@ -60,14 +63,17 @@ def est(security, date):
         #log.debug("[%s] np at %s: %.2f", security, d.strftime("%Y-%m-%d"), np[i])
         if i != 0:
             delta += (np[i-1] - np[i])/np[i]
-            log.debug("[%s] at %s, growth: %.2f", security, add_months(date, -(i-1)*12).strftime("%Y-%m-%d"), (np[i-1] - np[i])/np[i])
+            #log.debug("[%s] at %s, growth: %.2f", security, add_months(date, -(i-1)*12).strftime("%Y-%m-%d"), (np[i-1] - np[i])/np[i])
     growth = delta/NYG
     eps = get_eps(security, date)
     if math.isnan(eps):
         eps = get_eps(security, add_months(date, -3))
     log.debug("[%s] growth: %.4f, eps: %.2f", security, growth, eps)
     est = estimation_formula_bg(growth, eps)
-    return est
+    est_left = estimation_formula_bg_dynamic(growth, eps, pe_mu-pe_std)
+    est_centrum = estimation_formula_bg_dynamic(growth, eps, pe_mu)
+    est_right = estimation_formula_bg_dynamic(growth, eps, pe_mu+pe_std)
+    return est, est_left, est_centrum, est_right
 
 def get_net_profit(security, date):
     """
@@ -264,23 +270,43 @@ def gd_update(context, security):
         log.info("%s %f %f %f", df.valuation)
     '''
 
-def gd_get_left(security):
-    pass
-
-def gd_get_right(security):
-    pass
-
-def gd_get_centrum(security):
-    pass
+def gd_pe_get_mu_std(security):
+    j = g.security_gd_pe[g.pool.index(security)]
+    x_data = j.values()
+    #x_data.sort()
+    mu, std = norm.fit(x_data)
+    return mu, std
 
 def on_month_end(context):
     date = context.current_dt
     log.info('on_month_end: ' + str(date))
     for security in g.pool:
+        # update
         gd_update(context, security);
-        ''' estimation '''
-        est_value = est(security, date)
-        log.debug('[%s] estimation value: %.2f', security, est_value)
+
+        # p/e ratio
+        df = get_price(
+            security,
+            start_date = date.strftime("%Y-%m-%d"),
+            end_date = date.strftime("%Y-%m-%d"),
+            frequency = 'daily',
+            fields = ['close', 'factor'])
+        close = df['close']/df['factor']
+        close = close.mean()
+        e = get_eps(security, date)
+        if math.isnan(e):
+            e = get_eps(security, add_months(date, -3))
+        pe = round(close/e, 2)
+        log.debug('[%s] p/e ratio: %.2f @ price: %.2f', security, pe, close)
+
+        # get p/e array mu and std
+        mu, std = gd_pe_get_mu_std(security)
+        log.debug('[%s] p/e ratio mu: %.2f, std: %.2f', security, mu, std)
+
+        # estimation
+        est_value, est_left, est_centrum, est_right = est(security, date, mu, std)
+        log.debug('[%s] estimated value: %.2f', security, est_value)
+        log.debug('[%s] dynamic est: %.2f~%.2f~%.2f', security, est_left, est_centrum, est_right)
 
 def initialize(context):
     g.pool = POOL
@@ -315,25 +341,14 @@ def before_trading_start(context):
 def after_trading_end(context):
     date = context.current_dt
     for security in g.pool:
-        df = get_price(
-            security,
-            start_date = date.strftime("%Y-%m-%d"),
-            end_date = date.strftime("%Y-%m-%d"),
-            frequency = 'daily',
-            fields = ['close', 'factor'])
-        close = df['close']/df['factor']
-        close = close.mean()
-        e = get_eps(security, date)
-        if math.isnan(e):
-            e = get_eps(security, add_months(date, -3))
-        pe = round(close/e, 2)
-        log.debug('[%s] PE: %.2f @ price: %.2f', security, pe, close)
-        record(price=close)
+        pass
+    return
 
 def handle_data(context, data):
     cash = context.portfolio.cash
     value = context.portfolio.portfolio_value
     for security in g.pool:
+        record(price=data[security].price, m50=data[security].mavg(50))
         pass
     return
 
