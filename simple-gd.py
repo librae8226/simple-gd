@@ -16,8 +16,14 @@ POOL = [
     #'600048.XSHG', # 保利地产
     #'601633.XSHG',
     #'601222.XSHG',
-    '002415.XSHE',
+    #'002415.XSHE',
     #'600422.XSHG',
+    #'601318.XSHG',
+    #'600000.XSHG',
+    #'600036.XSHG',
+    '000651.XSHE',
+    #'000333.XSHE',
+    #'600741.XSHG',
 ]
 
 def estimation_formula_bg_dynamic(growth, eps, pe):
@@ -35,7 +41,7 @@ def estimation_formula_bg(growth, eps):
     return (2*growth+8.5)*eps
 
 # growth rate in N years
-NYG = 4
+NYG = 3
 def est(security, date):
     """
     """
@@ -51,15 +57,15 @@ def est(security, date):
             np.append(get_net_profit(security, d))
         else:
             np.append(tmp_np)
-        log.debug("np of %s at %s: %.2f", security, d.strftime("%Y-%m-%d"), np[i])
+        #log.debug("[%s] np at %s: %.2f", security, d.strftime("%Y-%m-%d"), np[i])
         if i != 0:
             delta += (np[i-1] - np[i])/np[i]
-            #log.debug("delta %d: %.2f", i, (np[i-1] - np[i])/np[i])
+            log.debug("[%s] at %s, growth: %.2f", security, add_months(date, -(i-1)*12).strftime("%Y-%m-%d"), (np[i-1] - np[i])/np[i])
     growth = delta/NYG
     eps = get_eps(security, date)
     if math.isnan(eps):
         eps = get_eps(security, add_months(date, -3))
-    log.debug("growth: %.4f, eps: %.2f", growth, eps)
+    log.debug("[%s] growth: %.4f, eps: %.2f", security, growth, eps)
     est = estimation_formula_bg(growth, eps)
     return est
 
@@ -153,7 +159,8 @@ def get_pe_of_period(security, start, end):
     #log.info('price mean: %f', p)
     e = get_eps(security, end)
     if math.isnan(e):
-        log.warn("get_pe_of_period, e is nan!")
+        #log.warn("get_pe_of_period, e is nan!")
+        pass
     pe = round(p/e, 2)
     #log.debug('P/E Ratio of %s at %s: %.2f', security, end.strftime("%Y-%m"), pe)
     return pe
@@ -267,10 +274,13 @@ def gd_get_centrum(security):
     pass
 
 def on_month_end(context):
-    log.info('on_month_end: ' + str(context.current_dt))
+    date = context.current_dt
+    log.info('on_month_end: ' + str(date))
     for security in g.pool:
         gd_update(context, security);
-    pass
+        ''' estimation '''
+        est_value = est(security, date)
+        log.debug('[%s] estimation value: %.2f', security, est_value)
 
 def initialize(context):
     g.pool = POOL
@@ -317,23 +327,8 @@ def after_trading_end(context):
         if math.isnan(e):
             e = get_eps(security, add_months(date, -3))
         pe = round(close/e, 2)
-        log.debug('PE of %s: %.2f (price: %.2f)', security, pe, close)
+        log.debug('[%s] PE: %.2f @ price: %.2f', security, pe, close)
         record(price=close)
-        ''' estimation '''
-        est_value = est(security, date)
-        log.debug('estimation value of %s: %.2f', security, est_value)
-
-        ''' testing
-        res = query(
-            valuation.code, valuation.pb_ratio, valuation.market_cap
-            ).filter(
-            valuation.code == security
-        )
-        for i in range(0, NYG+1):
-            d = add_months(date, -(NYG-i)*12).strftime("%Y-%m-%d")
-            ret = get_fundamentals(res, d)
-            log.debug("[%s] cap: %.2f, pb: %.2f", d, ret['market_cap'].mean(), ret['pb_ratio'].mean())
-         '''
 
 def handle_data(context, data):
     cash = context.portfolio.cash
