@@ -9,24 +9,37 @@ from scipy.stats import norm
 N = 12*5
 POOL = [
     #'600030.XSHG', # 中信证券
-    #'600887.XSHG', # 伊利股份
-    '600104.XSHG', # 上汽集团
+    '600887.XSHG', # 伊利股份
+    #'600104.XSHG', # 上汽集团
     #'600594.XSHG', # 益佰制药
     #'601668.XSHG', # 中国建筑
     #'600690.XSHG', # 青岛海尔
     #'600048.XSHG', # 保利地产
-    #'601633.XSHG',
+    #'601633.XSHG', # 长城汽车
     #'601222.XSHG',
-    #'002415.XSHE',
-    #'600422.XSHG',
-    #'601318.XSHG',
+    #'002415.XSHE', # 海康威视
+    #'600422.XSHG', # 昆药集团
+    #'601318.XSHG', # 中国平安
     #'600000.XSHG',
     #'600036.XSHG',
-    #'000651.XSHE',
+    #'000651.XSHE', # 格力电器
     #'000333.XSHE',
     #'600741.XSHG',
     #'002421.XSHE',
     #'601988.XSHG',
+    #'600066.XSHG',
+    #'600674.XSHG',
+    #'002065.XSHE',
+    #'002241.XSHE', # 歌尔声学
+    #'600563.XSHG',
+    #'000538.XSHE', # 云南白药
+    #'601231.XSHG', # 环旭电子
+    #'600332.XSHG', # BYS
+    #'601877.XSHG', # ZTDQ
+    #'000963.XSHE', # 华东医药
+    #'600535.XSHG', # TSL
+    #'600276.XSHG',
+    #'600177.XSHG', # 雅戈尔
 ]
 
 def estimation_formula_bg_dynamic(growth, eps, pe):
@@ -65,9 +78,11 @@ def est(security, date, pe_mu=8.5, pe_std=0):
             delta += (np[i-1] - np[i])/np[i]
             #log.debug("[%s] at %s, growth: %.2f", security, add_months(date, -(i-1)*12).strftime("%Y-%m-%d"), (np[i-1] - np[i])/np[i])
     growth = delta/NYG
+
     eps = get_eps(security, date)
     if math.isnan(eps):
         eps = get_eps(security, add_months(date, -3))
+
     log.debug("[%s] growth: %.4f, eps: %.2f", security, growth, eps)
     est = estimation_formula_bg(growth, eps)
     est_left = estimation_formula_bg_dynamic(growth, eps, pe_mu-pe_std)
@@ -307,6 +322,7 @@ def on_month_end(context):
         est_value, est_left, est_centrum, est_right = est(security, date, mu, std)
         log.debug('[%s] estimated value: %.2f', security, est_value)
         log.debug('[%s] dynamic est: %.2f~%.2f~%.2f', security, est_left, est_centrum, est_right)
+        log.debug('[%s] range from left: %.2f%%', security, (close-est_left)/est_left*100.0)
 
 def initialize(context):
     g.pool = POOL
