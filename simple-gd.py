@@ -8,38 +8,31 @@ from scipy.stats import norm
 # Retrieve N months of history data before starting date
 N = 12*5
 POOL = [
+    # in basket
+    #'600887.XSHG', # 伊利股份
+    '600104.XSHG', # 上汽集团
+    '600594.XSHG', # 益佰制药
+    '601633.XSHG', # 长城汽车
+    '002415.XSHE', # 海康威视
+    '000651.XSHE', # 格力电器
+    '601668.XSHG', # 中国建筑
+    '600690.XSHG', # 青岛海尔
+    '600048.XSHG', # 保利地产
+    '600422.XSHG', # 昆药集团
+    # target
     #'600030.XSHG', # 中信证券
-    '600887.XSHG', # 伊利股份
-    #'600104.XSHG', # 上汽集团
-    #'600594.XSHG', # 益佰制药
-    #'601668.XSHG', # 中国建筑
-    #'600690.XSHG', # 青岛海尔
-    #'600048.XSHG', # 保利地产
-    #'601633.XSHG', # 长城汽车
-    #'601222.XSHG',
-    #'002415.XSHE', # 海康威视
-    #'600422.XSHG', # 昆药集团
     #'601318.XSHG', # 中国平安
-    #'600000.XSHG',
-    #'600036.XSHG',
-    #'000651.XSHE', # 格力电器
-    #'000333.XSHE',
-    #'600741.XSHG',
-    #'002421.XSHE',
-    #'601988.XSHG',
-    #'600066.XSHG',
-    #'600674.XSHG',
-    #'002065.XSHE',
-    #'002241.XSHE', # 歌尔声学
-    #'600563.XSHG',
+    #'601222.XSHG', # 林洋
+    #'000895.XSHE', # 双汇
     #'000538.XSHE', # 云南白药
+    '002241.XSHE', # 歌尔声学
     #'601231.XSHG', # 环旭电子
-    #'600332.XSHG', # BYS
-    #'601877.XSHG', # ZTDQ
+    #'601877.XSHG', # 正泰电器
+    #'600332.XSHG', # 白云山
     #'000963.XSHE', # 华东医药
-    #'600535.XSHG', # TSL
-    #'600276.XSHG',
     #'600177.XSHG', # 雅戈尔
+    #'600066.XSHG',
+    #'600377.XSHG',
 ]
 
 def estimation_formula_bg_dynamic(growth, eps, pe):
@@ -47,7 +40,6 @@ def estimation_formula_bg_dynamic(growth, eps, pe):
     BG formula, integrate with the normal pe (based on Gaussian Distribution)
     """
     return (2*growth+pe)*eps
-    return
 
 def estimation_formula_bg(growth, eps):
     """
