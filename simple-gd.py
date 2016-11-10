@@ -304,7 +304,7 @@ def on_month_end(context):
         if math.isnan(e):
             e = get_eps(security, add_months(date, -3))
         pe = round(close/e, 2)
-        log.debug('[%s] p/e ratio: %.2f @ price: %.2f', security, pe, close)
+        log.debug('[%s] p/e ratio: %.2f @ price: %.2f', get_security_info(security).display_name, pe, close)
 
         # get p/e array mu and std
         mu, std = gd_pe_get_mu_std(security)
