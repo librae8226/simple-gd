@@ -10,19 +10,19 @@ N = 12*5
 POOL = [
     # in basket
     #'600887.XSHG', # 伊利股份
-    '600104.XSHG', # 上汽集团
+    '002415.XSHE', # 海康威视
+    '600422.XSHG', # 昆药集团
+    #'600104.XSHG', # 上汽集团
     '600594.XSHG', # 益佰制药
     '601633.XSHG', # 长城汽车
-    '002415.XSHE', # 海康威视
-    '000651.XSHE', # 格力电器
-    '601668.XSHG', # 中国建筑
-    '600690.XSHG', # 青岛海尔
-    '600048.XSHG', # 保利地产
-    '600422.XSHG', # 昆药集团
+    #'000651.XSHE', # 格力电器
+    #'601668.XSHG', # 中国建筑
+    #'600690.XSHG', # 青岛海尔
+    #'600048.XSHG', # 保利地产
     # target
     #'600030.XSHG', # 中信证券
     #'601318.XSHG', # 中国平安
-    #'601222.XSHG', # 林洋
+    '601222.XSHG', # 林洋
     #'000895.XSHE', # 双汇
     #'000538.XSHE', # 云南白药
     '002241.XSHE', # 歌尔声学
@@ -341,7 +341,7 @@ def initialize(context):
     set_universe(g.pool)
     set_commission(PerTrade(buy_cost=0.0025, sell_cost=0.0025, min_cost=5))
 
-    run_monthly(on_month_end, 0, time='after_close')
+    run_monthly(on_month_end, -1, time='after_close')
 
 def before_trading_start(context):
     pass
@@ -356,7 +356,7 @@ def handle_data(context, data):
     cash = context.portfolio.cash
     value = context.portfolio.portfolio_value
     for security in g.pool:
-        record(price=data[security].price, m50=data[security].mavg(50))
+        record(price=data[security].close, m50=data[security].mavg(50))
         pass
     return
 
